@@ -1,0 +1,5 @@
+{
+  "name": "PropertiCRM",
+  "description": "Aplikasi CRM properti lengkap dengan manajemen listing, pipeline penjualan, pelacakan leads, dan analisis kinerja agen.",
+  "requestFramePermissions": ["geolocation"]
+}
