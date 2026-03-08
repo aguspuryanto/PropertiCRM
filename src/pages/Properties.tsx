@@ -1,40 +1,95 @@
 import React, { useState } from 'react';
-import { Search, Filter, MapPin, Bed, Bath, Maximize, Plus, X, Upload, Camera, Phone } from 'lucide-react';
-import { MOCK_PROPERTIES } from '../lib/mockData';
+import { Search, Filter, MapPin, Bed, Bath, Maximize, Plus, X, Upload, Camera, Phone, Edit, Trash2 } from 'lucide-react';
+import { MOCK_PROPERTIES, Property } from '../lib/mockData';
 import { cn } from '../lib/utils';
 import { useToast, ToastContainer } from '../components/Toast';
 
 export default function Properties() {
+  const [properties, setProperties] = useState<Property[]>(MOCK_PROPERTIES);
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
   const { toasts, addToast, removeToast } = useToast();
 
-  const [formData, setFormData] = useState({
-    address: 'Park Royal - Sidokerto Buduran',
-    landArea: '97',
-    buildingArea: '49',
-    direction: 'timur',
-    bedrooms: '2',
-    bathrooms: '1',
+  const defaultFormData = {
+    title: '',
+    type: 'Rumah',
+    address: '',
+    landArea: '',
+    buildingArea: '',
+    direction: 'utara',
+    bedrooms: '',
+    bathrooms: '',
     floors: '1',
-    certificateStatus: 'sertifikat SHM pribadi',
-    water: 'sumur dan pdam',
-    electricity: '1300',
-    price: '950',
-    phone: '082140814184'
-  });
+    certificateStatus: '',
+    water: '',
+    electricity: '',
+    price: '',
+    phone: ''
+  };
 
-  const filteredProperties = MOCK_PROPERTIES.filter(p => {
+  const [formData, setFormData] = useState(defaultFormData);
+
+  const filteredProperties = properties.filter(p => {
     const matchesFilter = filter === 'All' || p.type === filter;
     const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase()) || 
                           p.address.toLowerCase().includes(search.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
+  const handleOpenModal = (property?: Property) => {
+    if (property) {
+      setEditingPropertyId(property.id);
+      setFormData({
+        ...defaultFormData,
+        title: property.title,
+        type: property.type,
+        address: property.address,
+        bedrooms: property.bedrooms.toString(),
+        bathrooms: property.bathrooms.toString(),
+        buildingArea: property.area.toString(),
+        price: (property.price / 1000000).toString(), // Convert to JT
+      });
+    } else {
+      setEditingPropertyId(null);
+      setFormData(defaultFormData);
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus listing ini?')) {
+      setProperties(properties.filter(p => p.id !== id));
+      addToast('Listing properti berhasil dihapus!', 'success');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    addToast('Listing properti berhasil ditambahkan!', 'success');
+    
+    const newProperty: Property = {
+      id: editingPropertyId || Math.random().toString(36).substr(2, 9),
+      title: formData.title || `${formData.type} di ${formData.address.split(',')[0]}`,
+      address: formData.address,
+      price: Number(formData.price) * 1000000, // Convert from JT
+      type: formData.type as any,
+      status: 'Available',
+      bedrooms: Number(formData.bedrooms) || 0,
+      bathrooms: Number(formData.bathrooms) || 0,
+      area: Number(formData.buildingArea) || 0,
+      image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b91d?auto=format&fit=crop&w=800&q=80',
+      agentId: 'a1'
+    };
+
+    if (editingPropertyId) {
+      setProperties(properties.map(p => p.id === editingPropertyId ? { ...p, ...newProperty } : p));
+      addToast('Listing properti berhasil diperbarui!', 'success');
+    } else {
+      setProperties([newProperty, ...properties]);
+      addToast('Listing properti berhasil ditambahkan!', 'success');
+    }
+    
     setIsModalOpen(false);
   };
 
@@ -70,7 +125,7 @@ export default function Properties() {
             </button>
           ))}
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => handleOpenModal()}
             className="flex items-center px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors ml-2"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -84,7 +139,7 @@ export default function Properties() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-100 p-6 flex items-center justify-between z-10">
-              <h2 className="text-xl font-bold text-slate-900">Tambah Listing Properti</h2>
+              <h2 className="text-xl font-bold text-slate-900">{editingPropertyId ? 'Edit Listing Properti' : 'Tambah Listing Properti'}</h2>
               <button 
                 onClick={() => setIsModalOpen(false)}
                 className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"
@@ -95,6 +150,32 @@ export default function Properties() {
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Judul Listing</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Contoh: Rumah Minimalis Modern di BSD"
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                    value={formData.title}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Tipe Properti</label>
+                  <select 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                    value={formData.type}
+                    onChange={(e) => setFormData({...formData, type: e.target.value})}
+                  >
+                    <option value="Rumah">Rumah</option>
+                    <option value="Apartemen">Apartemen</option>
+                    <option value="Tanah">Tanah</option>
+                    <option value="Ruko">Ruko</option>
+                  </select>
+                </div>
+
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Alamat Lokasi</label>
                   <input 
@@ -281,15 +362,29 @@ export default function Properties() {
                 alt={property.title} 
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
-              <div className="absolute top-3 right-3">
+              <div className="absolute top-3 right-3 flex flex-col gap-2">
                 <span className={cn(
-                  "px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wider",
+                  "px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wider text-center",
                   property.status === 'Available' ? "bg-emerald-500 text-white" :
                   property.status === 'Sold' ? "bg-red-500 text-white" :
                   "bg-amber-500 text-white"
                 )}>
                   {property.status}
                 </span>
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => handleOpenModal(property)}
+                    className="p-1.5 bg-white text-slate-700 hover:text-blue-600 rounded-md shadow-sm transition-colors"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(property.id)}
+                    className="p-1.5 bg-white text-slate-700 hover:text-red-600 rounded-md shadow-sm transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
                 <p className="text-white font-bold text-lg">
